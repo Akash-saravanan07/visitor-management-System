@@ -1,0 +1,98 @@
+@import "./theme.css";
+
+/* History tab — the Scan/History switcher and check-in list on
+   SecurityDashboard.jsx. The component currently builds these
+   with inline styles; import this file and swap to the class
+   names below (sd-tab-bar, sd-tab-button, etc.) for consistency
+   with the rest of the app, or leave the inline styles as-is —
+   this file is purely additive and won't conflict either way. */
+
+.sd-tab-bar {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+
+.sd-tab-button {
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-weight: 600;
+  font-size: var(--fs-sm);
+}
+
+.sd-tab-button.active {
+  background: var(--color-dark);
+  border-color: var(--color-dark);
+  color: #fff;
+}
+
+.sd-history-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.sd-date-input {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+}
+
+.sd-empty-state {
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+  color: var(--color-text-faint);
+  font-size: var(--fs-sm);
+}
+
+.sd-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sd-history-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+
+.sd-history-name {
+  font-weight: 700;
+  font-size: var(--fs-base);
+  margin-bottom: var(--space-1);
+}
+
+.sd-history-meta {
+  font-size: var(--fs-xs);
+  color: var(--color-text-faint);
+}
+
+.sd-history-side {
+  text-align: right;
+  font-size: var(--fs-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.sd-history-verified {
+  font-weight: 600;
+  margin-bottom: 2px;
+  color: var(--color-text);
+}
+
+.sd-history-by {
+  color: var(--color-text-faint);
+}
