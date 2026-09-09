@@ -5,13 +5,12 @@ The root `vercel.json` builds the Vite app from `frontend` and routes API reques
 
 Add these environment variables in Vercel for every deployed environment:
 
-- `DB_HOST`
-- `DB_PORT`
-- `DB_USER`
-- `DB_PASSWORD`
-- `DB_NAME`
+- `DATABASE_URL` - the connection string from Neon, Supabase, or another hosted PostgreSQL provider
+- `DB_SSL=true` - recommended for hosted PostgreSQL
 
 The PostgreSQL database must be reachable from Vercel. Leave `VITE_API_URL` unset when the frontend and API use the same Vercel deployment. Set it to the public backend URL only when deploying the backend separately.
+
+Create the required database tables in the hosted PostgreSQL database before using the deployed app. This project expects an existing `users` table; the backend creates the `bookings` table when run as a regular server, but Vercel functions should use a database that has already been initialized.
 
 For local development, set `VITE_API_URL=http://localhost:5000` in `frontend/.env` and run the frontend and backend separately.
 
