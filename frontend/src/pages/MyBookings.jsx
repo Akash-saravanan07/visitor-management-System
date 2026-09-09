@@ -6,7 +6,7 @@ import React, {
 
 import { QRCodeCanvas } from "qrcode.react";
 
-import "./myBookings.css";
+import "./MyBookings.css";
 import { API_BASE } from "../services/api";
 
 

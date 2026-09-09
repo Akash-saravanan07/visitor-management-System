@@ -1,5 +1,5 @@
 import React from "react";
-import "./myProfile.css";
+import "./MyProfile.css";
 
 // FIX: sessionStorage instead of localStorage — see note in Login.jsx.
 

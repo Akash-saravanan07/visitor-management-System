@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import './CompletedView.css';
+import './Completedview.css';
 import { API_BASE } from '../services/api';
 
 /**

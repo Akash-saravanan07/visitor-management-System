@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import './AdminDashboard.css';
+import './Admindashboard.css';
 import { API_BASE } from '../services/api';
 
 /**

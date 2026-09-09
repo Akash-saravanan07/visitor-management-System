@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
-import "./bookVisit.css";
+import "./bookvisit.css";
 import { API_BASE } from "../services/api";
 
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import './AdminDashboard.css';
+import './Admindashboard.css';
 import { BookingsView } from './Adminsections';
 import VisitorsView from './Visitorsview';
 import CurrentVisitorsView from './Currentvisitorsview';

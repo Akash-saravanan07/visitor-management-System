@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import './CurrentVisitorsView.css';
+import './Currentvisitorsview.css';
 import { API_BASE } from '../services/api';
 
 /**

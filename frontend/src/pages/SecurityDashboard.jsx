@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import "./securityDashboard.css";
+import "./SecurityDashboard.css";
 import { API_BASE } from "../services/api";
 
 
