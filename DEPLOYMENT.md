@@ -1,7 +1,7 @@
 # Vercel deployment
 
 Create the Vercel project from the repository root (`d:\Shnool llc`), not from `frontend`.
-The root `vercel.json` builds the Vite app from `frontend` and routes API requests to the Express function in `api/index.js`.
+The root `vercel.json` builds the Vite app from `frontend` into the root `dist` directory and routes API requests to the Express function in `api/index.js`.
 
 Add these environment variables in Vercel for every deployed environment:
 

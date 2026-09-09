@@ -2,7 +2,7 @@
   "name": "shnool-visitor-management",
   "private": true,
   "scripts": {
-    "build": "npm --prefix frontend install && npm --prefix frontend run build",
+    "build": "npm --prefix frontend install && npm --prefix frontend run build -- --outDir ../dist",
     "start": "npm --prefix backend start"
   },
   "dependencies": {
