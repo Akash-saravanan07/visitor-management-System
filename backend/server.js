@@ -101,6 +101,73 @@ async function testDatabase() {
 
 
 // ============================================================
+// CREATE USERS TABLE IF IT DOES NOT EXIST
+//
+// NEW: this was missing entirely, which is why every register/
+// login call was failing with "relation \"users\" does not
+// exist" on the Render database — the table was never created
+// there in the first place.
+// ============================================================
+
+async function createUsersTable() {
+
+  try {
+
+    await pool.query(`
+      CREATE EXTENSION IF NOT EXISTS pgcrypto;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+
+        id SERIAL PRIMARY KEY,
+
+        name VARCHAR(255),
+
+        full_name VARCHAR(255),
+
+        email VARCHAR(255)
+          UNIQUE
+          NOT NULL,
+
+        phone VARCHAR(50),
+
+        password TEXT
+          NOT NULL,
+
+        role VARCHAR(50)
+          DEFAULT 'USER',
+
+        account_type VARCHAR(50)
+          DEFAULT 'USER',
+
+        created_at TIMESTAMP
+          NOT NULL
+          DEFAULT CURRENT_TIMESTAMP
+
+      );
+    `);
+
+    console.log(
+      "Users table ready."
+    );
+
+  } catch (error) {
+
+    console.error(
+      "USERS TABLE ERROR:"
+    );
+
+    console.error(
+      error.message
+    );
+
+  }
+
+}
+
+
+// ============================================================
 // CREATE BOOKINGS TABLE IF IT DOES NOT EXIST
 // ============================================================
 
@@ -1683,10 +1750,6 @@ app.delete(
 // ADMIN DASHBOARD ROUTES
 // ============================================================
 
-// Map DB status values to the labels/colors the admin UI expects.
-// NOTE: ABSENT added — CurrentVisitorsView and CompletedView both
-// send/expect "Absent" as a status, and without this entry it would
-// silently fall back to "Pending".
 const STATUS_DISPLAY = {
   PENDING:   { label: "Pending",   color: "#f59e0b" },
   APPROVED:  { label: "Approved",  color: "#2563eb" },
@@ -1701,10 +1764,6 @@ function displayStatus(rawStatus) {
   return (STATUS_DISPLAY[key] || { label: "Pending", color: "#f59e0b" }).label;
 }
 
-
-// ------------------------------------------------------------
-// GET /admin/stats
-// ------------------------------------------------------------
 
 app.get("/admin/stats", async (req, res) => {
 
@@ -1736,10 +1795,6 @@ app.get("/admin/stats", async (req, res) => {
 
 });
 
-
-// ------------------------------------------------------------
-// GET /admin/bookings/weekly
-// ------------------------------------------------------------
 
 app.get("/admin/bookings/weekly", async (req, res) => {
 
@@ -1777,10 +1832,6 @@ app.get("/admin/bookings/weekly", async (req, res) => {
 });
 
 
-// ------------------------------------------------------------
-// GET /admin/bookings/status
-// ------------------------------------------------------------
-
 app.get("/admin/bookings/status", async (req, res) => {
 
   try {
@@ -1816,10 +1867,6 @@ app.get("/admin/bookings/status", async (req, res) => {
 
 });
 
-
-// ------------------------------------------------------------
-// GET /admin/visitors/today
-// ------------------------------------------------------------
 
 app.get("/admin/visitors/today", async (req, res) => {
 
@@ -1861,15 +1908,6 @@ app.get("/admin/visitors/today", async (req, res) => {
 
 });
 
-
-// ------------------------------------------------------------
-// GET /admin/bookings
-//
-// Feeds BookingsView (Bookings tab). NOTE: there is no "host"
-// column anywhere in your schema, so this returns "—" for host.
-// Add a host_id / host_name column to `bookings` (or a `users`
-// join for staff) if you actually need this field populated.
-// ------------------------------------------------------------
 
 app.get("/admin/bookings", async (req, res) => {
 
@@ -1915,16 +1953,6 @@ app.get("/admin/bookings", async (req, res) => {
 
 });
 
-
-// ------------------------------------------------------------
-// PATCH /admin/bookings/:id
-//
-// Shared by BookingsView, CurrentVisitorsView (via
-// Adminsections.jsx / Currentvisitorsview.jsx). Accepts a
-// display-style status ("Approved", "Cancelled", "Completed",
-// "Absent") and stores it uppercased to match how the rest of
-// the app reads status.
-// ------------------------------------------------------------
 
 app.patch("/admin/bookings/:id", async (req, res) => {
 
@@ -1982,14 +2010,6 @@ app.patch("/admin/bookings/:id", async (req, res) => {
 });
 
 
-// ------------------------------------------------------------
-// GET /admin/visitors
-//
-// Feeds VisitorsView — one row per user who has at least one
-// booking, with a booking count and their most recent visit
-// date.
-// ------------------------------------------------------------
-
 app.get("/admin/visitors", async (req, res) => {
 
   try {
@@ -2025,13 +2045,6 @@ app.get("/admin/visitors", async (req, res) => {
 
 });
 
-
-// ------------------------------------------------------------
-// GET /admin/visitors/current
-//
-// Feeds CurrentVisitorsView. "Current" = approved bookings for
-// today that haven't been marked Completed/Absent yet.
-// ------------------------------------------------------------
 
 app.get("/admin/visitors/current", async (req, res) => {
 
@@ -2077,12 +2090,6 @@ app.get("/admin/visitors/current", async (req, res) => {
 
 });
 
-
-// ------------------------------------------------------------
-// GET /admin/visitors/completed
-//
-// Feeds CompletedView — bookings marked Completed or Absent.
-// ------------------------------------------------------------
 
 app.get("/admin/visitors/completed", async (req, res) => {
 
@@ -2150,10 +2157,25 @@ app.use(
 
 
 // ============================================================
-// START SERVER
+// DATABASE INITIALIZATION
+//
+// FIX: this used to only run inside startServer(), which was
+// itself gated behind `if (require.main === module)`. On
+// Vercel, this file is `require`d as a module (not run
+// directly with `node server.js`), so require.main !== module
+// there — meaning testDatabase()/createBookingsTable() NEVER
+// ran on Vercel at all. That's the real reason the "users"
+// table was never created on the Render database: the code
+// that would have created it silently never executed in
+// production.
+//
+// initDatabase() now runs unconditionally as soon as this
+// module is loaded — both locally (via `node server.js`) and
+// on Vercel (when it's required as the serverless handler).
+// app.listen() is still only called locally, further below.
 // ============================================================
 
-async function startServer() {
+async function initDatabase() {
 
   const dbConnected =
     await testDatabase();
@@ -2161,14 +2183,25 @@ async function startServer() {
   if (!dbConnected) {
 
     console.error(
-      "Server cannot start because database connection failed."
+      "Database connection failed at startup — check DB env vars."
     );
-
-    process.exit(1);
 
   }
 
+  await createUsersTable();
+
   await createBookingsTable();
+
+}
+
+initDatabase();
+
+
+// ============================================================
+// START SERVER (LOCAL ONLY)
+// ============================================================
+
+if (require.main === module) {
 
   app.listen(
     PORT,
@@ -2209,10 +2242,6 @@ async function startServer() {
     }
   );
 
-}
-
-if (require.main === module) {
-  startServer();
 }
 
 module.exports = app;
