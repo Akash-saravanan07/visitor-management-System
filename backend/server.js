@@ -102,11 +102,6 @@ async function testDatabase() {
 
 // ============================================================
 // CREATE USERS TABLE IF IT DOES NOT EXIST
-//
-// NEW: this was missing entirely, which is why every register/
-// login call was failing with "relation \"users\" does not
-// exist" on the Render database — the table was never created
-// there in the first place.
 // ============================================================
 
 async function createUsersTable() {
@@ -1748,6 +1743,13 @@ app.delete(
 
 // ============================================================
 // ADMIN DASHBOARD ROUTES
+//
+// FIX: every route below moved from /admin/... to /api/admin/...
+// Vercel's rewrite/routing configuration only forwards requests
+// starting with /api/ to this Express app — anything else (like
+// the old /admin/... paths) fell through to the frontend's own
+// index.html, which is why the browser was getting back
+// "<!doctype html>..." instead of JSON.
 // ============================================================
 
 const STATUS_DISPLAY = {
@@ -1765,7 +1767,7 @@ function displayStatus(rawStatus) {
 }
 
 
-app.get("/admin/stats", async (req, res) => {
+app.get("/api/admin/stats", async (req, res) => {
 
   try {
 
@@ -1796,7 +1798,7 @@ app.get("/admin/stats", async (req, res) => {
 });
 
 
-app.get("/admin/bookings/weekly", async (req, res) => {
+app.get("/api/admin/bookings/weekly", async (req, res) => {
 
   try {
 
@@ -1832,7 +1834,7 @@ app.get("/admin/bookings/weekly", async (req, res) => {
 });
 
 
-app.get("/admin/bookings/status", async (req, res) => {
+app.get("/api/admin/bookings/status", async (req, res) => {
 
   try {
 
@@ -1868,7 +1870,7 @@ app.get("/admin/bookings/status", async (req, res) => {
 });
 
 
-app.get("/admin/visitors/today", async (req, res) => {
+app.get("/api/admin/visitors/today", async (req, res) => {
 
   try {
 
@@ -1909,7 +1911,7 @@ app.get("/admin/visitors/today", async (req, res) => {
 });
 
 
-app.get("/admin/bookings", async (req, res) => {
+app.get("/api/admin/bookings", async (req, res) => {
 
   try {
 
@@ -1954,7 +1956,7 @@ app.get("/admin/bookings", async (req, res) => {
 });
 
 
-app.patch("/admin/bookings/:id", async (req, res) => {
+app.patch("/api/admin/bookings/:id", async (req, res) => {
 
   try {
 
@@ -2010,7 +2012,7 @@ app.patch("/admin/bookings/:id", async (req, res) => {
 });
 
 
-app.get("/admin/visitors", async (req, res) => {
+app.get("/api/admin/visitors", async (req, res) => {
 
   try {
 
@@ -2046,7 +2048,7 @@ app.get("/admin/visitors", async (req, res) => {
 });
 
 
-app.get("/admin/visitors/current", async (req, res) => {
+app.get("/api/admin/visitors/current", async (req, res) => {
 
   try {
 
@@ -2091,7 +2093,7 @@ app.get("/admin/visitors/current", async (req, res) => {
 });
 
 
-app.get("/admin/visitors/completed", async (req, res) => {
+app.get("/api/admin/visitors/completed", async (req, res) => {
 
   try {
 
@@ -2158,21 +2160,6 @@ app.use(
 
 // ============================================================
 // DATABASE INITIALIZATION
-//
-// FIX: this used to only run inside startServer(), which was
-// itself gated behind `if (require.main === module)`. On
-// Vercel, this file is `require`d as a module (not run
-// directly with `node server.js`), so require.main !== module
-// there — meaning testDatabase()/createBookingsTable() NEVER
-// ran on Vercel at all. That's the real reason the "users"
-// table was never created on the Render database: the code
-// that would have created it silently never executed in
-// production.
-//
-// initDatabase() now runs unconditionally as soon as this
-// module is loaded — both locally (via `node server.js`) and
-// on Vercel (when it's required as the serverless handler).
-// app.listen() is still only called locally, further below.
 // ============================================================
 
 async function initDatabase() {
