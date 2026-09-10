@@ -43,7 +43,7 @@ export default function VisitorsView() {
 
     async function load() {
       try {
-        const res = await fetch(`${API_BASE}/admin/visitors`);
+        const res = await fetch(`${API_BASE}/api/admin/visitors`);
         if (!res.ok) throw new Error('Request failed');
         const data = await res.json();
         if (!cancelled) {
