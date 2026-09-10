@@ -80,7 +80,7 @@ const NAV_ITEMS = [
   { id: 'bookings', label: 'Bookings', icon: 'calendar' },
   { id: 'visitors', label: 'Visitors', icon: 'id' },
   { id: 'currentVisitors', label: 'Current Visitors', icon: 'clock' },
-  { id: 'completed', label: 'Completed', icon: 'chart' },
+ 
 ];
 
 const ICONS = {
@@ -106,7 +106,6 @@ function Icon({ name, size = 18 }) {
 const STATUS_CLASS = {
   Approved: 'status-pill--approved',
   Pending: 'status-pill--pending',
-  Completed: 'status-pill--completed',
   Cancelled: 'status-pill--cancelled',
   Absent: 'status-pill--cancelled', // reuses the red "cancelled" look — add a
                                      // dedicated .status-pill--absent rule in
@@ -250,7 +249,7 @@ function DashboardView() {
             <StatCard label="Users" value={stats.users} />
             <StatCard label="Bookings" value={stats.bookings} />
             <StatCard label="Pending" value={stats.pending} />
-            <StatCard label="Completed" value={stats.completed} />
+           
           </>
         ) : (
           <div className="empty-note">Loading stats…</div>
@@ -305,7 +304,7 @@ const SECTION_VIEWS = {
   bookings: BookingsView,
   visitors: VisitorsView,
   currentVisitors: CurrentVisitorsView,
-  completed: CompletedView,
+  
 };
 
 function getStoredUser() {
