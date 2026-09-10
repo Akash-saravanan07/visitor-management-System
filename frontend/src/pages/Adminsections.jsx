@@ -5,17 +5,16 @@ import { API_BASE } from '../services/api';
 /**
  * Shnool admin — section views
  *
- * FIX: every fetch() below now uses API_BASE (http://localhost:5000)
- * instead of a relative path. The frontend runs on Vite (:5173) and
- * the backend runs separately (:5000) — a relative fetch('/admin/...')
- * hits the Vite dev server, not the API, and always 404s regardless
- * of what routes exist on the backend. This matches how
- * Visitorsview.jsx and Currentvisitorsview.jsx already do it.
+ * FIX: every fetch() below now calls /api/admin/... instead of
+ * /admin/.... Vercel's routing only forwards paths starting with
+ * /api/ to the Express backend — anything else falls through to
+ * the frontend's own index.html, which is why these were getting
+ * back "<!doctype html>..." instead of JSON.
  *
- *   Bookings          GET  /admin/bookings                 PATCH /admin/bookings/:id  { status }
- *   Visitors (all)    GET  /admin/visitors
- *   Current visitors  GET  /admin/visitors/current          PATCH /admin/bookings/:id  { status: "Completed" | "Absent" }
- *   Completed history GET  /admin/visitors/completed
+ *   Bookings          GET  /api/admin/bookings                 PATCH /api/admin/bookings/:id  { status }
+ *   Visitors (all)    GET  /api/admin/visitors
+ *   Current visitors  GET  /api/admin/visitors/current          PATCH /api/admin/bookings/:id  { status: "Completed" | "Absent" }
+ *   Completed history GET  /api/admin/visitors/completed
  *
  * Each list starts as `null` (loading), becomes `[]` on an empty result,
  * or an array of records. Actions update local state optimistically and
@@ -56,7 +55,7 @@ export function BookingsView() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`${API_BASE}/admin/bookings`)
+    fetch(`${API_BASE}/api/admin/bookings`)
       .then((res) => {
         if (!res.ok) throw new Error();
         return res.json();
@@ -76,7 +75,7 @@ export function BookingsView() {
     const prev = bookings;
     setBookings((bs) => bs.map((b) => (b.id === id ? { ...b, status } : b)));
     try {
-      const res = await fetch(`${API_BASE}/admin/bookings/${id}`, {
+      const res = await fetch(`${API_BASE}/api/admin/bookings/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
@@ -154,7 +153,7 @@ export function VisitorsView() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`${API_BASE}/admin/visitors`)
+    fetch(`${API_BASE}/api/admin/visitors`)
       .then((res) => {
         if (!res.ok) throw new Error();
         return res.json();
@@ -216,7 +215,7 @@ export function CurrentVisitorsView() {
   const [actingId, setActingId] = useState(null);
 
   const load = () => {
-    fetch(`${API_BASE}/admin/visitors/current`)
+    fetch(`${API_BASE}/api/admin/visitors/current`)
       .then((res) => {
         if (!res.ok) throw new Error();
         return res.json();
@@ -239,7 +238,7 @@ export function CurrentVisitorsView() {
     setVisitors((vs) => vs.filter((v) => v.id !== id));
 
     try {
-      const res = await fetch(`${API_BASE}/admin/bookings/${id}`, {
+      const res = await fetch(`${API_BASE}/api/admin/bookings/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
@@ -317,7 +316,7 @@ export function CompletedView() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`${API_BASE}/admin/visitors/completed`)
+    fetch(`${API_BASE}/api/admin/visitors/completed`)
       .then((res) => {
         if (!res.ok) throw new Error();
         return res.json();

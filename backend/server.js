@@ -9,6 +9,7 @@ const dotenv = require("dotenv");
 const bcrypt = require("bcryptjs");
 const { Pool } = require("pg");
 const crypto = require("crypto");
+const nodemailer = require("nodemailer");
 
 dotenv.config();
 
@@ -60,6 +61,19 @@ const pool = new Pool(poolConfig);
 
 
 // ============================================================
+// EMAIL (for password reset links)
+// ============================================================
+
+const transporter = nodemailer.createTransport({
+  service: "gmail", // swap for host/port config if using a different provider
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS // Gmail: use an App Password, not your real password
+  }
+});
+
+
+// ============================================================
 // DATABASE CONNECTION TEST
 // ============================================================
 
@@ -94,6 +108,68 @@ async function testDatabase() {
     console.error("");
 
     return false;
+
+  }
+
+}
+
+
+// ============================================================
+// CREATE USERS TABLE IF IT DOES NOT EXIST
+// ============================================================
+
+async function createUsersTable() {
+
+  try {
+
+    await pool.query(`
+      CREATE EXTENSION IF NOT EXISTS pgcrypto;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+
+        id SERIAL PRIMARY KEY,
+
+        name VARCHAR(255),
+
+        full_name VARCHAR(255),
+
+        email VARCHAR(255)
+          UNIQUE
+          NOT NULL,
+
+        phone VARCHAR(50),
+
+        password TEXT
+          NOT NULL,
+
+        role VARCHAR(50)
+          DEFAULT 'USER',
+
+        account_type VARCHAR(50)
+          DEFAULT 'USER',
+
+        created_at TIMESTAMP
+          NOT NULL
+          DEFAULT CURRENT_TIMESTAMP
+
+      );
+    `);
+
+    console.log(
+      "Users table ready."
+    );
+
+  } catch (error) {
+
+    console.error(
+      "USERS TABLE ERROR:"
+    );
+
+    console.error(
+      error.message
+    );
 
   }
 
@@ -159,6 +235,58 @@ async function createBookingsTable() {
 
     console.error(
       "BOOKINGS TABLE ERROR:"
+    );
+
+    console.error(
+      error.message
+    );
+
+  }
+
+}
+
+
+// ============================================================
+// CREATE PASSWORD RESETS TABLE IF IT DOES NOT EXIST
+// ============================================================
+
+async function createPasswordResetsTable() {
+
+  try {
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS password_resets (
+
+        id SERIAL PRIMARY KEY,
+
+        user_id INTEGER
+          NOT NULL
+          REFERENCES users(id)
+          ON DELETE CASCADE,
+
+        token_hash TEXT NOT NULL,
+
+        expires_at TIMESTAMP NOT NULL,
+
+        used BOOLEAN
+          NOT NULL
+          DEFAULT FALSE,
+
+        created_at TIMESTAMP
+          NOT NULL
+          DEFAULT CURRENT_TIMESTAMP
+
+      );
+    `);
+
+    console.log(
+      "Password resets table ready."
+    );
+
+  } catch (error) {
+
+    console.error(
+      "PASSWORD RESETS TABLE ERROR:"
     );
 
     console.error(
@@ -664,6 +792,279 @@ app.post(
 
         message:
           "Registration failed",
+
+        error:
+          error.message
+
+      });
+
+    }
+
+  }
+);
+
+
+// ============================================================
+// FORGOT PASSWORD
+// ============================================================
+
+app.post(
+  "/api/auth/forgot-password",
+  async (req, res) => {
+
+    try {
+
+      const {
+        email
+      } = req.body;
+
+      if (!email) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Email is required"
+
+        });
+
+      }
+
+      const cleanEmail =
+        String(email)
+          .trim()
+          .toLowerCase();
+
+      const userResult =
+        await pool.query(
+          `
+          SELECT *
+          FROM users
+          WHERE LOWER(email) = $1
+          LIMIT 1
+          `,
+          [cleanEmail]
+        );
+
+      // Always respond the same way whether or not the account
+      // exists, so this route can't be used to check which
+      // emails are registered.
+      const genericResponse = {
+
+        success: true,
+
+        message:
+          "If an account exists for that email, a reset link has been sent."
+
+      };
+
+      if (
+        userResult.rows.length === 0
+      ) {
+
+        return res.status(200).json(genericResponse);
+
+      }
+
+      const user =
+        userResult.rows[0];
+
+      const rawToken =
+        crypto
+          .randomBytes(32)
+          .toString("hex");
+
+      const tokenHash =
+        crypto
+          .createHash("sha256")
+          .update(rawToken)
+          .digest("hex");
+
+      const expiresAt =
+        new Date(
+          Date.now() + 30 * 60 * 1000
+        ); // 30 minutes
+
+      await pool.query(
+        `
+        INSERT INTO password_resets
+        (user_id, token_hash, expires_at)
+        VALUES
+        ($1, $2, $3)
+        `,
+        [
+          user.id,
+          tokenHash,
+          expiresAt
+        ]
+      );
+
+      const resetLink =
+        `${process.env.FRONTEND_URL}/reset-password?token=${rawToken}`;
+
+      await transporter.sendMail({
+
+        from: process.env.EMAIL_USER,
+
+        to: user.email,
+
+        subject:
+          "Reset your Visitor Portal password",
+
+        html: `
+          <p>Hi ${user.name || user.full_name || ""},</p>
+          <p>Click the link below to reset your password. This link expires in 30 minutes.</p>
+          <p><a href="${resetLink}">${resetLink}</a></p>
+          <p>If you didn't request this, you can ignore this email.</p>
+        `
+
+      });
+
+      return res.status(200).json(genericResponse);
+
+    } catch (error) {
+
+      console.error(
+        "FORGOT PASSWORD ERROR:",
+        error
+      );
+
+      res.status(500).json({
+
+        success: false,
+
+        message:
+          "Failed to process request",
+
+        error:
+          error.message
+
+      });
+
+    }
+
+  }
+);
+
+
+// ============================================================
+// RESET PASSWORD
+// ============================================================
+
+app.post(
+  "/api/auth/reset-password",
+  async (req, res) => {
+
+    try {
+
+      const {
+        token,
+        password
+      } = req.body;
+
+      if (
+        !token ||
+        !password
+      ) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Token and new password are required"
+
+        });
+
+      }
+
+      const tokenHash =
+        crypto
+          .createHash("sha256")
+          .update(token)
+          .digest("hex");
+
+      const resetResult =
+        await pool.query(
+          `
+          SELECT *
+          FROM password_resets
+          WHERE token_hash = $1
+          AND used = FALSE
+          AND expires_at > NOW()
+          LIMIT 1
+          `,
+          [tokenHash]
+        );
+
+      if (
+        resetResult.rows.length === 0
+      ) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "This reset link is invalid or has expired."
+
+        });
+
+      }
+
+      const resetRow =
+        resetResult.rows[0];
+
+      const hashedPassword =
+        await bcrypt.hash(
+          password,
+          10
+        );
+
+      await pool.query(
+        `
+        UPDATE users
+        SET password = $1
+        WHERE id = $2
+        `,
+        [
+          hashedPassword,
+          resetRow.user_id
+        ]
+      );
+
+      await pool.query(
+        `
+        UPDATE password_resets
+        SET used = TRUE
+        WHERE id = $1
+        `,
+        [resetRow.id]
+      );
+
+      res.status(200).json({
+
+        success: true,
+
+        message:
+          "Password has been reset successfully."
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "RESET PASSWORD ERROR:",
+        error
+      );
+
+      res.status(500).json({
+
+        success: false,
+
+        message:
+          "Failed to reset password",
 
         error:
           error.message
@@ -1681,12 +2082,15 @@ app.delete(
 
 // ============================================================
 // ADMIN DASHBOARD ROUTES
+//
+// FIX: every route below moved from /admin/... to /api/admin/...
+// Vercel's rewrite/routing configuration only forwards requests
+// starting with /api/ to this Express app — anything else (like
+// the old /admin/... paths) fell through to the frontend's own
+// index.html, which is why the browser was getting back
+// "<!doctype html>..." instead of JSON.
 // ============================================================
 
-// Map DB status values to the labels/colors the admin UI expects.
-// NOTE: ABSENT added — CurrentVisitorsView and CompletedView both
-// send/expect "Absent" as a status, and without this entry it would
-// silently fall back to "Pending".
 const STATUS_DISPLAY = {
   PENDING:   { label: "Pending",   color: "#f59e0b" },
   APPROVED:  { label: "Approved",  color: "#2563eb" },
@@ -1702,11 +2106,7 @@ function displayStatus(rawStatus) {
 }
 
 
-// ------------------------------------------------------------
-// GET /admin/stats
-// ------------------------------------------------------------
-
-app.get("/admin/stats", async (req, res) => {
+app.get("/api/admin/stats", async (req, res) => {
 
   try {
 
@@ -1737,11 +2137,7 @@ app.get("/admin/stats", async (req, res) => {
 });
 
 
-// ------------------------------------------------------------
-// GET /admin/bookings/weekly
-// ------------------------------------------------------------
-
-app.get("/admin/bookings/weekly", async (req, res) => {
+app.get("/api/admin/bookings/weekly", async (req, res) => {
 
   try {
 
@@ -1777,11 +2173,7 @@ app.get("/admin/bookings/weekly", async (req, res) => {
 });
 
 
-// ------------------------------------------------------------
-// GET /admin/bookings/status
-// ------------------------------------------------------------
-
-app.get("/admin/bookings/status", async (req, res) => {
+app.get("/api/admin/bookings/status", async (req, res) => {
 
   try {
 
@@ -1817,11 +2209,7 @@ app.get("/admin/bookings/status", async (req, res) => {
 });
 
 
-// ------------------------------------------------------------
-// GET /admin/visitors/today
-// ------------------------------------------------------------
-
-app.get("/admin/visitors/today", async (req, res) => {
+app.get("/api/admin/visitors/today", async (req, res) => {
 
   try {
 
@@ -1862,16 +2250,7 @@ app.get("/admin/visitors/today", async (req, res) => {
 });
 
 
-// ------------------------------------------------------------
-// GET /admin/bookings
-//
-// Feeds BookingsView (Bookings tab). NOTE: there is no "host"
-// column anywhere in your schema, so this returns "—" for host.
-// Add a host_id / host_name column to `bookings` (or a `users`
-// join for staff) if you actually need this field populated.
-// ------------------------------------------------------------
-
-app.get("/admin/bookings", async (req, res) => {
+app.get("/api/admin/bookings", async (req, res) => {
 
   try {
 
@@ -1916,17 +2295,7 @@ app.get("/admin/bookings", async (req, res) => {
 });
 
 
-// ------------------------------------------------------------
-// PATCH /admin/bookings/:id
-//
-// Shared by BookingsView, CurrentVisitorsView (via
-// Adminsections.jsx / Currentvisitorsview.jsx). Accepts a
-// display-style status ("Approved", "Cancelled", "Completed",
-// "Absent") and stores it uppercased to match how the rest of
-// the app reads status.
-// ------------------------------------------------------------
-
-app.patch("/admin/bookings/:id", async (req, res) => {
+app.patch("/api/admin/bookings/:id", async (req, res) => {
 
   try {
 
@@ -1982,15 +2351,7 @@ app.patch("/admin/bookings/:id", async (req, res) => {
 });
 
 
-// ------------------------------------------------------------
-// GET /admin/visitors
-//
-// Feeds VisitorsView — one row per user who has at least one
-// booking, with a booking count and their most recent visit
-// date.
-// ------------------------------------------------------------
-
-app.get("/admin/visitors", async (req, res) => {
+app.get("/api/admin/visitors", async (req, res) => {
 
   try {
 
@@ -2026,14 +2387,7 @@ app.get("/admin/visitors", async (req, res) => {
 });
 
 
-// ------------------------------------------------------------
-// GET /admin/visitors/current
-//
-// Feeds CurrentVisitorsView. "Current" = approved bookings for
-// today that haven't been marked Completed/Absent yet.
-// ------------------------------------------------------------
-
-app.get("/admin/visitors/current", async (req, res) => {
+app.get("/api/admin/visitors/current", async (req, res) => {
 
   try {
 
@@ -2078,13 +2432,7 @@ app.get("/admin/visitors/current", async (req, res) => {
 });
 
 
-// ------------------------------------------------------------
-// GET /admin/visitors/completed
-//
-// Feeds CompletedView — bookings marked Completed or Absent.
-// ------------------------------------------------------------
-
-app.get("/admin/visitors/completed", async (req, res) => {
+app.get("/api/admin/visitors/completed", async (req, res) => {
 
   try {
 
@@ -2150,10 +2498,10 @@ app.use(
 
 
 // ============================================================
-// START SERVER
+// DATABASE INITIALIZATION
 // ============================================================
 
-async function startServer() {
+async function initDatabase() {
 
   const dbConnected =
     await testDatabase();
@@ -2161,14 +2509,27 @@ async function startServer() {
   if (!dbConnected) {
 
     console.error(
-      "Server cannot start because database connection failed."
+      "Database connection failed at startup — check DB env vars."
     );
-
-    process.exit(1);
 
   }
 
+  await createUsersTable();
+
   await createBookingsTable();
+
+  await createPasswordResetsTable();
+
+}
+
+initDatabase();
+
+
+// ============================================================
+// START SERVER (LOCAL ONLY)
+// ============================================================
+
+if (require.main === module) {
 
   app.listen(
     PORT,
@@ -2209,10 +2570,6 @@ async function startServer() {
     }
   );
 
-}
-
-if (require.main === module) {
-  startServer();
 }
 
 module.exports = app;

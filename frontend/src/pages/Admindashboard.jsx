@@ -197,11 +197,11 @@ function DashboardView() {
     async function load() {
       try {
         const [statsRes, weeklyRes, statusRes, upcomingRes] = await Promise.all([
-          fetch(`${API_BASE}/admin/stats`),
-          fetch(`${API_BASE}/admin/bookings/weekly`),
-          fetch(`${API_BASE}/admin/bookings/status`),
-          fetch(`${API_BASE}/admin/visitors/today`),
-        ]);
+  fetch(`${API_BASE}/api/admin/stats`),
+  fetch(`${API_BASE}/api/admin/bookings/weekly`),
+  fetch(`${API_BASE}/api/admin/bookings/status`),
+  fetch(`${API_BASE}/api/admin/visitors/today`),
+]);
         if (!statsRes.ok || !weeklyRes.ok || !statusRes.ok || !upcomingRes.ok) {
           throw new Error('One or more dashboard requests failed');
         }
