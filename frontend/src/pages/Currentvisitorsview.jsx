@@ -44,7 +44,7 @@ export default function CurrentVisitorsView() {
   async function loadVisitors() {
     try {
       setError(null);
-      const res = await fetch(`${API_BASE}/admin/visitors/current`);
+     const res = await fetch(`${API_BASE}/api/admin/visitors/current`);
       if (!res.ok) throw new Error('Request failed');
       const data = await res.json();
       setVisitors(Array.isArray(data) ? data : []);
@@ -64,7 +64,7 @@ export default function CurrentVisitorsView() {
     setActioningId(bookingId);
 
     try {
-      const res = await fetch(`${API_BASE}/admin/bookings/${bookingId}`, {
+  const res = await fetch(`${API_BASE}/api/admin/bookings/${bookingId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
